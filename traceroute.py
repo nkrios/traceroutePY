@@ -29,7 +29,8 @@ class Traceroute(object):
         self.ip_address = ip_address
         self.source = source
         if self.source is None:
-            json_file = open("sources.json", "r").read()
+            cur_dir = os.path.dirname(os.path.abspath(__file__))
+            json_file = open(os.path.join(cur_dir, "sources.json"), "r").read()
             sources = json.loads(json_file.replace("_IP_ADDRESS_", ip_address))
             self.source = sources[country]
         self.country = country
@@ -93,7 +94,7 @@ class Traceroute(object):
             matches = re.findall(pattern, content)
         traceroute = ''
         for match in matches:
-            match  = match.strip()
+            match = match.strip()
             if match and 'ms' in match.lower():
                 traceroute = match
                 break
@@ -126,19 +127,24 @@ class Traceroute(object):
         We use this function to better represent the hosts data in a dict.
         """
         formatted_hops = []
-        regex = r'(?P<h>[\w.-]+) \((?P<i>[\d.]+)\) (?P<r>\d{1,4}.\d{1,4} ms)'
+        regex = r'(' \
+                r'(?P<i1>[\d.]+) \((?P<h1>[\w.-]+)\)' \
+                r'|' \
+                r'(?P<h2>[\w.-]+) \((?P<i2>[\d.]+)\)' \
+                r')' \
+                r' (?P<r>\d{1,4}.\d{1,4}\s{0,1}ms)'
         for hop in hops:
             hop_num = int(hop['hop_num'].strip())
             hosts = hop['hosts'].replace("  ", " ").strip()
-            # Using re.findall(), we split the hosts, then for each host,
+            # Using re.finditer(), we split the hosts, then for each host,
             # we store a tuple of hostname, IP address and the first RTT.
-            hosts = re.findall(regex, hosts)
+            hosts = re.finditer(regex, hosts)
             for host in hosts:
                 hop_context = {
                     'hop_num': hop_num,
-                    'hostname': host[0],
-                    'ip_address': host[1],
-                    'rtt': host[2],
+                    'hostname': host.group('h1') or host.group('h2'),
+                    'ip_address': host.group('i1') or host.group('i2'),
+                    'rtt': host.group('r'),
                 }
                 self.print_debug(hop_context)
                 formatted_hops.append(hop_context)
